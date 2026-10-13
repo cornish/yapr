@@ -5,10 +5,12 @@
 class DocumentTab;
 class QComboBox;
 class QLabel;
+class QListView;
 class QPdfBookmarkModel;
 class QSpinBox;
 class QTabWidget;
 class QTreeView;
+class ThumbnailModel;
 
 class MainWindow : public QMainWindow
 {
@@ -23,10 +25,13 @@ public:
 
 protected:
     void closeEvent(QCloseEvent *event) override;
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
 
 private:
     void openFileDialog();
     void closeTab(int index);
+    void rememberReadingPosition(DocumentTab *tab);
     void currentTabChanged(int index);
     void applyZoomSelection(int comboIndex);
     void zoomBy(qreal factor);
@@ -42,6 +47,9 @@ private:
 
     QTreeView *m_outlineView = nullptr;
     QPdfBookmarkModel *m_bookmarkModel = nullptr;
+    QListView *m_thumbnailView = nullptr;
+    ThumbnailModel *m_thumbnailModel = nullptr;
+    QAction *m_invertAction = nullptr;
 
     bool m_restoringSession = false;
 };

@@ -15,6 +15,18 @@ contract with you:
   window, not a new window.
 - **Instant start, no bloat.** A small native binary that opens before you
   finish letting go of the mouse button.
+- **Explicit memory, never spooky.** yapr remembers your last page per
+  document (just the page — mode and zoom stay at their defaults), and
+  File → Forget Reading Positions wipes it all, no questions asked.
+
+## Features
+
+- Tabbed reading, drag-and-drop to open
+- Text search (Ctrl+F) with match count and F3/Shift+F3 navigation
+- Sidebar (F9) with document outline and async-rendered page thumbnails
+- Dark mode (View → Theme) and inverted page colors (Ctrl+I) for night
+  reading — both persisted
+- Session restore that only ever reflects reality
 
 ## Stack
 
@@ -60,7 +72,19 @@ cmake --build build
 | Ctrl+F | Find in document |
 | F3 / Shift+F3 | Next / previous match |
 | Ctrl+= / Ctrl+- | Zoom in / out |
+| F9 | Toggle sidebar (outline / thumbnails) |
+| Ctrl+I | Invert page colors |
 | Ctrl+Q | Quit |
+
+## Packaging (Windows)
+
+```powershell
+.\scripts\package-windows.ps1       # -> dist\yapr-win64-portable.zip
+.\scripts\register-open-with.ps1    # add yapr to "Open with" for .pdf (HKCU, no admin)
+.\scripts\register-open-with.ps1 -Unregister
+```
+
+The portable folder is fully self-contained — run it from anywhere.
 
 ## License
 

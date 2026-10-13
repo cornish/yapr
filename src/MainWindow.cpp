@@ -1,12 +1,19 @@
 #include "MainWindow.h"
 #include "DocumentTab.h"
+#include "ThumbnailModel.h"
 
+#include <QActionGroup>
 #include <QApplication>
 #include <QCloseEvent>
 #include <QComboBox>
+#include <QCryptographicHash>
 #include <QDockWidget>
+#include <QDragEnterEvent>
+#include <QDropEvent>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QListView>
+#include <QMimeData>
 #include <QLabel>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -17,7 +24,9 @@
 #include <QSettings>
 #include <QSpinBox>
 #include <QStatusBar>
+#include <QStyleHints>
 #include <QTabWidget>
+#include <QTimer>
 #include <QToolBar>
 #include <QTreeView>
 
@@ -25,12 +34,22 @@ namespace {
 // Zoom combo item data: positive values are percentages.
 constexpr int kFitWidth = -1;
 constexpr int kFitPage = -2;
+
+// Settings key for a file's remembered reading position. Paths are hashed
+// because QSettings treats '/' as a group separator.
+QString fileStateKey(const QString &filePath)
+{
+    const QByteArray hash =
+        QCryptographicHash::hash(filePath.toUtf8(), QCryptographicHash::Md5).toHex();
+    return QStringLiteral("fileState/") + QString::fromLatin1(hash);
+}
 } // namespace
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     setWindowTitle(QStringLiteral("yapr"));
+    setAcceptDrops(true);
 
     m_tabs = new QTabWidget(this);
     m_tabs->setTabsClosable(true);
@@ -41,7 +60,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_tabs, &QTabWidget::tabCloseRequested, this, &MainWindow::closeTab);
     connect(m_tabs, &QTabWidget::currentChanged, this, &MainWindow::currentTabChanged);
 
-    // --- outline sidebar ---
+    // --- sidebar: outline + page thumbnails ---
     m_bookmarkModel = new QPdfBookmarkModel(this);
     m_outlineView = new QTreeView(this);
     m_outlineView->setModel(m_bookmarkModel);
@@ -54,11 +73,32 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(m_outlineView, &QTreeView::clicked, m_outlineView, &QTreeView::activated);
 
-    auto *outlineDock = new QDockWidget(tr("Outline"), this);
-    outlineDock->setObjectName(QStringLiteral("outlineDock"));
-    outlineDock->setWidget(m_outlineView);
-    addDockWidget(Qt::LeftDockWidgetArea, outlineDock);
-    outlineDock->hide();
+    m_thumbnailModel = new ThumbnailModel(this);
+    m_thumbnailView = new QListView(this);
+    m_thumbnailView->setModel(m_thumbnailModel);
+    m_thumbnailView->setViewMode(QListView::IconMode);
+    m_thumbnailView->setMovement(QListView::Static);
+    m_thumbnailView->setResizeMode(QListView::Adjust);
+    m_thumbnailView->setSpacing(12);
+    m_thumbnailView->setIconSize(QSize(ThumbnailModel::kThumbWidth, 4096));
+    m_thumbnailView->setUniformItemSizes(false);
+    m_thumbnailView->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    connect(m_thumbnailView, &QListView::clicked, this, [this](const QModelIndex &index) {
+        if (auto *tab = currentTab())
+            tab->goToPage(index.row());
+    });
+
+    auto *sidebarTabs = new QTabWidget(this);
+    sidebarTabs->setDocumentMode(true);
+    sidebarTabs->addTab(m_outlineView, tr("Outline"));
+    sidebarTabs->addTab(m_thumbnailView, tr("Pages"));
+
+    auto *sidebarDock = new QDockWidget(tr("Sidebar"), this);
+    sidebarDock->setObjectName(QStringLiteral("sidebarDock"));
+    sidebarDock->setWidget(sidebarTabs);
+    sidebarDock->setMinimumWidth(ThumbnailModel::kThumbWidth + 60);
+    addDockWidget(Qt::LeftDockWidgetArea, sidebarDock);
+    sidebarDock->hide();
 
     // --- menu ---
     QMenu *fileMenu = menuBar()->addMenu(tr("&File"));
@@ -69,16 +109,67 @@ MainWindow::MainWindow(QWidget *parent)
             closeTab(m_tabs->currentIndex());
     });
     fileMenu->addSeparator();
+    fileMenu->addAction(tr("Forget Reading &Positions"), this, [this] {
+        QSettings settings;
+        settings.remove(QStringLiteral("fileState"));
+        statusBar()->showMessage(tr("Remembered reading positions cleared."), 3000);
+    });
+    fileMenu->addSeparator();
     fileMenu->addAction(tr("&Quit"), QKeySequence(Qt::CTRL | Qt::Key_Q),
                         this, &QWidget::close);
 
     QMenu *viewMenu = menuBar()->addMenu(tr("&View"));
-    viewMenu->addAction(outlineDock->toggleViewAction());
+    QAction *sidebarAction = sidebarDock->toggleViewAction();
+    sidebarAction->setShortcut(QKeySequence(Qt::Key_F9));
+    viewMenu->addAction(sidebarAction);
     viewMenu->addSeparator();
     viewMenu->addAction(tr("Zoom &In"), QKeySequence::ZoomIn,
                         this, [this] { zoomBy(1.2); });
     viewMenu->addAction(tr("Zoom &Out"), QKeySequence::ZoomOut,
                         this, [this] { zoomBy(1.0 / 1.2); });
+    viewMenu->addSeparator();
+
+    QSettings settings;
+
+    QMenu *themeMenu = viewMenu->addMenu(tr("&Theme"));
+    auto *themeGroup = new QActionGroup(this);
+    const auto addThemeAction = [&](const QString &text, Qt::ColorScheme scheme) {
+        QAction *action = themeMenu->addAction(text);
+        action->setCheckable(true);
+        themeGroup->addAction(action);
+        connect(action, &QAction::triggered, this, [scheme] {
+            QGuiApplication::styleHints()->setColorScheme(scheme);
+            QSettings().setValue(QStringLiteral("ui/colorScheme"), int(scheme));
+        });
+        return action;
+    };
+    QAction *systemTheme = addThemeAction(tr("&System"), Qt::ColorScheme::Unknown);
+    QAction *lightTheme = addThemeAction(tr("&Light"), Qt::ColorScheme::Light);
+    QAction *darkTheme = addThemeAction(tr("&Dark"), Qt::ColorScheme::Dark);
+
+    const auto savedScheme = Qt::ColorScheme(
+        settings.value(QStringLiteral("ui/colorScheme"),
+                       int(Qt::ColorScheme::Unknown)).toInt());
+    switch (savedScheme) {
+    case Qt::ColorScheme::Light: lightTheme->setChecked(true); break;
+    case Qt::ColorScheme::Dark: darkTheme->setChecked(true); break;
+    default: systemTheme->setChecked(true); break;
+    }
+    QGuiApplication::styleHints()->setColorScheme(savedScheme);
+
+    QAction *invertAction = viewMenu->addAction(tr("Invert Page &Colors"));
+    invertAction->setCheckable(true);
+    invertAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_I));
+    invertAction->setChecked(
+        settings.value(QStringLiteral("view/invertColors"), false).toBool());
+    connect(invertAction, &QAction::toggled, this, [this](bool inverted) {
+        QSettings().setValue(QStringLiteral("view/invertColors"), inverted);
+        for (int i = 0; i < m_tabs->count(); ++i) {
+            if (auto *tab = qobject_cast<DocumentTab *>(m_tabs->widget(i)))
+                tab->setInvertedColors(inverted);
+        }
+    });
+    m_invertAction = invertAction;
 
     QMenu *editMenu = menuBar()->addMenu(tr("&Edit"));
     editMenu->addAction(tr("&Find..."), QKeySequence::Find, this, [this] {
@@ -126,7 +217,6 @@ MainWindow::MainWindow(QWidget *parent)
 
     statusBar();
 
-    QSettings settings;
     restoreGeometry(settings.value(QStringLiteral("window/geometry")).toByteArray());
     restoreState(settings.value(QStringLiteral("window/state")).toByteArray());
 
@@ -157,11 +247,23 @@ void MainWindow::openFile(const QString &filePath)
     const int index = m_tabs->addTab(tab, QFileInfo(canonical).fileName());
     m_tabs->setTabToolTip(index, canonical);
     m_tabs->setCurrentIndex(index);
+    tab->setInvertedColors(m_invertAction->isChecked());
 
     connect(tab, &DocumentTab::currentPageChanged, this, [this, tab](int) {
         if (tab == currentTab())
             syncPageControls();
     });
+
+    // Restore the remembered reading position (page only — mode and zoom
+    // stay at their deterministic defaults). Deferred so the view has a
+    // real viewport size to lay pages out against first.
+    QSettings settings;
+    const int savedPage = settings.value(fileStateKey(canonical), 0).toInt();
+    if (savedPage > 0 && savedPage < tab->document()->pageCount()) {
+        QTimer::singleShot(0, tab, [tab, savedPage] {
+            tab->goToPage(savedPage);
+        });
+    }
 
     saveSession();
 }
@@ -184,10 +286,22 @@ void MainWindow::openFileDialog()
 void MainWindow::closeTab(int index)
 {
     QWidget *widget = m_tabs->widget(index);
+    if (auto *tab = qobject_cast<DocumentTab *>(widget))
+        rememberReadingPosition(tab);
     m_tabs->removeTab(index);
     delete widget;
     // Closed means closed: persist immediately, not at exit.
     saveSession();
+}
+
+void MainWindow::rememberReadingPosition(DocumentTab *tab)
+{
+    QSettings settings;
+    const QString key = fileStateKey(tab->filePath());
+    if (tab->currentPage() > 0)
+        settings.setValue(key, tab->currentPage());
+    else
+        settings.remove(key);
 }
 
 void MainWindow::currentTabChanged(int index)
@@ -202,6 +316,7 @@ void MainWindow::currentTabChanged(int index)
         setWindowTitle(QStringLiteral("yapr"));
         m_pageCountLabel->setText(QStringLiteral(" / -"));
         m_bookmarkModel->setDocument(nullptr);
+        m_thumbnailModel->setDocument(nullptr);
         statusBar()->clearMessage();
         return;
     }
@@ -210,6 +325,7 @@ void MainWindow::currentTabChanged(int index)
                        .arg(QFileInfo(tab->filePath()).fileName()));
     m_bookmarkModel->setDocument(tab->document());
     m_outlineView->expandToDepth(0);
+    m_thumbnailModel->setDocument(tab->document());
     statusBar()->showMessage(tab->filePath());
     syncPageControls();
 }
@@ -250,6 +366,13 @@ void MainWindow::syncPageControls()
     m_pageSpin->setMaximum(qMax(1, pageCount));
     const QSignalBlocker blocker(m_pageSpin);
     m_pageSpin->setValue(tab->currentPage() + 1);
+
+    // Keep the thumbnail selection following the reading position.
+    if (m_thumbnailView->isVisible()) {
+        const QModelIndex idx = m_thumbnailModel->index(tab->currentPage());
+        m_thumbnailView->setCurrentIndex(idx);
+        m_thumbnailView->scrollTo(idx);
+    }
 }
 
 void MainWindow::saveSession()
@@ -286,8 +409,28 @@ DocumentTab *MainWindow::currentTab() const
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+    for (int i = 0; i < m_tabs->count(); ++i) {
+        if (auto *tab = qobject_cast<DocumentTab *>(m_tabs->widget(i)))
+            rememberReadingPosition(tab);
+    }
     QSettings settings;
     settings.setValue(QStringLiteral("window/geometry"), saveGeometry());
     settings.setValue(QStringLiteral("window/state"), saveState());
     QMainWindow::closeEvent(event);
+}
+
+void MainWindow::dragEnterEvent(QDragEnterEvent *event)
+{
+    if (event->mimeData()->hasUrls())
+        event->acceptProposedAction();
+}
+
+void MainWindow::dropEvent(QDropEvent *event)
+{
+    const QList<QUrl> urls = event->mimeData()->urls();
+    for (const QUrl &url : urls) {
+        if (url.isLocalFile())
+            openFile(url.toLocalFile());
+    }
+    event->acceptProposedAction();
 }

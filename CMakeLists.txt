@@ -19,6 +19,8 @@ qt_add_executable(yapr
     src/MainWindow.cpp
     src/DocumentTab.h
     src/DocumentTab.cpp
+    src/ThumbnailModel.h
+    src/ThumbnailModel.cpp
 )
 
 target_link_libraries(yapr PRIVATE

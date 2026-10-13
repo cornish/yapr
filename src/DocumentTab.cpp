@@ -4,6 +4,7 @@
 #include <QKeySequence>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPainter>
 #include <QPdfDocument>
 #include <QPdfLink>
 #include <QPdfPageNavigator>
@@ -12,6 +13,21 @@
 #include <QShortcut>
 #include <QToolButton>
 #include <QVBoxLayout>
+
+void InvertEffect::draw(QPainter *painter)
+{
+    QPoint offset;
+    const QPixmap source =
+        sourcePixmap(Qt::DeviceCoordinates, &offset, QGraphicsEffect::NoPad);
+    if (source.isNull())
+        return;
+    QImage image = source.toImage();
+    image.invertPixels();
+    painter->save();
+    painter->setWorldTransform(QTransform());
+    painter->drawImage(offset, image);
+    painter->restore();
+}
 
 DocumentTab::DocumentTab(const QString &filePath, QWidget *parent)
     : QWidget(parent)
@@ -25,6 +41,10 @@ DocumentTab::DocumentTab(const QString &filePath, QWidget *parent)
     // Deterministic defaults: every document opens the same way, every time.
     m_view->setPageMode(QPdfView::PageMode::MultiPage);
     m_view->setZoomMode(QPdfView::ZoomMode::FitToWidth);
+
+    m_invertEffect = new InvertEffect(m_view->viewport());
+    m_invertEffect->setEnabled(false);
+    m_view->viewport()->setGraphicsEffect(m_invertEffect);
 
     m_searchModel = new QPdfSearchModel(this);
     m_searchModel->setDocument(m_document);
@@ -109,6 +129,11 @@ void DocumentTab::goToPage(int page)
         return;
     auto *nav = m_view->pageNavigator();
     nav->jump(page, QPointF(), nav->currentZoom());
+}
+
+void DocumentTab::setInvertedColors(bool inverted)
+{
+    m_invertEffect->setEnabled(inverted);
 }
 
 void DocumentTab::showSearchBar()

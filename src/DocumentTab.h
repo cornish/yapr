@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QGraphicsEffect>
 #include <QWidget>
 
 class QLabel;
@@ -7,6 +8,19 @@ class QLineEdit;
 class QPdfDocument;
 class QPdfSearchModel;
 class QPdfView;
+
+// Inverts the rendered page colors ("dark reader" mode) by post-processing
+// the viewport's painted output. The PDF engine itself has no invert knob.
+class InvertEffect : public QGraphicsEffect
+{
+    Q_OBJECT
+
+public:
+    using QGraphicsEffect::QGraphicsEffect;
+
+protected:
+    void draw(QPainter *painter) override;
+};
 
 // One open PDF: a QPdfView plus its document, search model, and a
 // hideable in-tab search bar.
@@ -26,6 +40,7 @@ public:
     void goToPage(int page); // 0-based
 
     void showSearchBar();
+    void setInvertedColors(bool inverted);
 
 signals:
     void currentPageChanged(int page); // 0-based
@@ -47,4 +62,5 @@ private:
     QWidget *m_searchBar = nullptr;
     QLineEdit *m_searchEdit = nullptr;
     QLabel *m_searchCountLabel = nullptr;
+    InvertEffect *m_invertEffect = nullptr;
 };
