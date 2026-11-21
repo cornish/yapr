@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.21)
 # the Windows file properties, the macOS bundle, and release tags (vX.Y.Z,
 # checked by CI) all derive from it.
 project(yapr
-    VERSION 0.1.0
+    VERSION 0.2.0
     DESCRIPTION "yet another pdf reader - fast, predictable, no bloat"
     HOMEPAGE_URL "https://github.com/cornish/yapr"
     LANGUAGES CXX
