@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 
 #include <QApplication>
+#include <QIcon>
 #include <QFileInfo>
 #include <QLocalServer>
 #include <QLocalSocket>
@@ -32,6 +33,11 @@ int main(int argc, char *argv[])
     QApplication::setApplicationName(QStringLiteral("yapr"));
     QApplication::setApplicationVersion(QStringLiteral("0.1.0"));
     QSettings::setDefaultFormat(QSettings::IniFormat);
+
+    QIcon appIcon;
+    for (int size : {16, 24, 32, 48, 64, 128, 256})
+        appIcon.addFile(QStringLiteral(":/icons/yapr-%1.png").arg(size), QSize(size, size));
+    QApplication::setWindowIcon(appIcon);
 
     QStringList files;
     const QStringList args = app.arguments().mid(1);

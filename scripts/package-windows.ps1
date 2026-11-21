@@ -12,7 +12,11 @@ if (-not (Test-Path $bash)) { throw "MSYS2 bash not found at $bash" }
 
 $env:MSYSTEM = 'UCRT64'
 $env:CHERE_INVOKING = '1'
-& $bash -l -c "'$($PSScriptRoot -replace '\\','/' -replace '^([A-Za-z]):','/$1')/package-windows.sh'"
+# windeployqt prints warnings to stderr; under 'Stop' PowerShell 5.1 treats
+# any native stderr output as fatal, so judge success by exit code only.
+$ErrorActionPreference = 'Continue'
+& $bash -l -c "'$($PSScriptRoot -replace '\\','/' -replace '^([A-Za-z]):','/$1')/package-windows.sh'" 2>&1 | ForEach-Object { "$_" }
+$ErrorActionPreference = 'Stop'
 if ($LASTEXITCODE -ne 0) { throw "package-windows.sh failed (exit $LASTEXITCODE)" }
 
 $distDir = Join-Path $repoRoot 'dist\yapr'

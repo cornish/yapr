@@ -1,6 +1,8 @@
-# yapr — yet another pdf reader
+<p align="center">
+  <img src="assets/yapr-logo-900.png" alt="yapr — Yet Another PDF Reader" width="450">
+</p>
 
-A fast, light, cross-platform PDF reader that never surprises you.
+<p align="center"><b>A fast, light, cross-platform PDF reader that never surprises you.</b></p>
 
 Built because Adobe is bloated and the free alternatives are janky. yapr's
 contract with you:
@@ -17,16 +19,32 @@ contract with you:
   finish letting go of the mouse button.
 - **Explicit memory, never spooky.** yapr remembers your last page per
   document (just the page — mode and zoom stay at their defaults), and
-  File → Forget Reading Positions wipes it all, no questions asked.
+  ☰ → Forget Reading Positions wipes it all, no questions asked.
 
 ## Features
 
+- Compact layout: tab row with a ☰ menu, one toolbar (page box, previous/next page,
+  fit width/page, zoom, inline Find), no menu bar or status bar
 - Tabbed reading, drag-and-drop to open
+- Text selection: drag to select (across pages), double-click for a word,
+  Ctrl+A for everything, Ctrl+C to copy
+- Ctrl+drag a rectangle to copy that region as a 300 dpi image
+- Printing (Ctrl+P) with page ranges; landscape pages auto-rotate to fit
 - Text search (Ctrl+F) with match count and F3/Shift+F3 navigation
 - Sidebar (F9) with document outline and async-rendered page thumbnails
-- Dark mode (View → Theme) and inverted page colors (Ctrl+I) for night
-  reading — both persisted
+- Dark mode (toolbar toggle or Ctrl+Shift+D; System/Light/Dark under
+  ☰ → View → Theme) and inverted page colors (Ctrl+I) for night reading —
+  both persisted
 - Session restore that only ever reflects reality
+- Recent files (File → Open Recent) and Reopen Closed Tab (Ctrl+Shift+T) —
+  explicit, never automatic
+- Back/forward through link, outline, and page jumps (Alt+Left/Right or
+  mouse side buttons)
+- Auto-reload when the file changes on disk, keeping your scroll position
+  (toggle in ☰ → Preferences). Files are read into memory, so yapr never
+  locks a PDF that another program wants to rewrite.
+- Full screen (F11), go to page (Ctrl+G), tab context menu (copy path, open
+  containing folder, close others / to the right)
 
 ## Stack
 
@@ -68,11 +86,22 @@ cmake --build build
 | Key | Action |
 |---|---|
 | Ctrl+O | Open file(s) |
+| Ctrl+P | Print |
 | Ctrl+W | Close tab |
+| Ctrl+Shift+T | Reopen closed tab |
+| Ctrl+G | Go to page |
+| Alt+Left / Alt+Right | Back / forward |
+| F5 | Reload |
+| F11 / Esc | Full screen / exit full screen |
+| Ctrl+, | Preferences |
+| Ctrl+C / Ctrl+A | Copy selection / select all text |
+| Ctrl+drag | Copy region as image |
 | Ctrl+F | Find in document |
-| F3 / Shift+F3 | Next / previous match |
+| F3 / Shift+F3 (Enter / Shift+Enter in the box) | Next / previous match |
+| Ctrl+2 / Ctrl+0 / Ctrl+1 | Fit width / fit page / actual size |
 | Ctrl+= / Ctrl+- | Zoom in / out |
 | F9 | Toggle sidebar (outline / thumbnails) |
+| Ctrl+Shift+D | Toggle light / dark theme |
 | Ctrl+I | Invert page colors |
 | Ctrl+Q | Quit |
 
