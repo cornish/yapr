@@ -17,6 +17,14 @@ cp -R "$build/yapr.app" "$stage/"
 # Bundle Qt frameworks and plugins into the app.
 "$macdeployqt" "$stage/yapr.app" -always-overwrite
 
+# The release promises a universal app; fail loudly if it isn't.
+archs="$(lipo -archs "$stage/yapr.app/Contents/MacOS/yapr")"
+echo "yapr.app architectures: $archs"
+case "$archs" in
+    *arm64*x86_64*|*x86_64*arm64*) ;;
+    *) echo "error: expected a universal (arm64 + x86_64) binary" >&2; exit 1 ;;
+esac
+
 # macdeployqt rewrites binaries, invalidating signatures; Apple Silicon
 # refuses to run unsigned code at all, so re-sign ad hoc. (Not a Developer
 # ID signature: users still right-click > Open on first launch.)

@@ -5,10 +5,11 @@
 <p align="center"><b>A fast, light, cross-platform PDF reader that never surprises you.</b></p>
 
 <p align="center">
+  <a href="https://github.com/cornish/yapr/actions/workflows/build.yml"><img src="https://github.com/cornish/yapr/actions/workflows/build.yml/badge.svg" alt="Build status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0"></a>
   <img src="https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white" alt="C++17">
   <img src="https://img.shields.io/badge/Qt-6-41CD52?logo=qt&logoColor=white" alt="Qt 6">
-  <img src="https://img.shields.io/badge/platform-Windows-0078D6" alt="Platform: Windows">
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-555" alt="Platforms: Windows, Linux, macOS">
 </p>
 
 Built because Adobe is bloated and the free alternatives are janky. yapr's
