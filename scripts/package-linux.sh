@@ -32,6 +32,9 @@ fetch linuxdeploy-plugin-qt-x86_64.AppImage \
 export PATH="$tools:$PATH"
 export APPIMAGE_EXTRACT_AND_RUN=1   # CI runners have no FUSE
 export QMAKE="${QMAKE:-$(command -v qmake6 || command -v qmake)}"
+# linuxdeploy resolves libraries like the dynamic loader does, so Qt's own
+# lib directory must be on the search path.
+export LD_LIBRARY_PATH="$("$QMAKE" -query QT_INSTALL_LIBS)${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export OUTPUT="$dist/yapr-$version-linux-x86_64.AppImage"
 
 linuxdeploy-x86_64.AppImage \
