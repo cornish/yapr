@@ -4,6 +4,13 @@
 
 <p align="center"><b>A fast, light, cross-platform PDF reader that never surprises you.</b></p>
 
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0"></a>
+  <img src="https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white" alt="C++17">
+  <img src="https://img.shields.io/badge/Qt-6-41CD52?logo=qt&logoColor=white" alt="Qt 6">
+  <img src="https://img.shields.io/badge/platform-Windows-0078D6" alt="Platform: Windows">
+</p>
+
 Built because Adobe is bloated and the free alternatives are janky. yapr's
 contract with you:
 
