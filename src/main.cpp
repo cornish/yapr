@@ -1,8 +1,10 @@
 #include "MainWindow.h"
 
 #include <QApplication>
-#include <QIcon>
+#include <QDir>
 #include <QFileInfo>
+#include <QFileOpenEvent>
+#include <QIcon>
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QSettings>
@@ -24,6 +26,41 @@ bool forwardToRunningInstance(const QStringList &files)
     socket.waitForBytesWritten(1000);
     return true;
 }
+
+// Portable mode: if a file named "portable" sits next to the executable
+// (the portable zip ships one), settings live in a "data" folder beside it
+// instead of the user profile — nothing is left behind on the machine.
+void enablePortableModeIfMarked()
+{
+    const QDir appDir(QCoreApplication::applicationDirPath());
+    if (!QFileInfo::exists(appDir.filePath(QStringLiteral("portable"))))
+        return;
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope,
+                       appDir.filePath(QStringLiteral("data")));
+}
+
+// macOS delivers files opened from Finder ("Open With", double-click, drag
+// onto the Dock icon) as QFileOpenEvents rather than command-line arguments.
+class FileOpenFilter : public QObject
+{
+public:
+    explicit FileOpenFilter(MainWindow *window) : QObject(window), m_window(window) {}
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (event->type() == QEvent::FileOpen) {
+            const QString file = static_cast<QFileOpenEvent *>(event)->file();
+            if (!file.isEmpty())
+                m_window->openFile(file);
+            return true;
+        }
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    MainWindow *m_window;
+};
 } // namespace
 
 int main(int argc, char *argv[])
@@ -31,8 +68,9 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     QApplication::setOrganizationName(QStringLiteral("yapr"));
     QApplication::setApplicationName(QStringLiteral("yapr"));
-    QApplication::setApplicationVersion(QStringLiteral("0.1.0"));
+    QApplication::setApplicationVersion(QStringLiteral(YAPR_VERSION));
     QSettings::setDefaultFormat(QSettings::IniFormat);
+    enablePortableModeIfMarked();
 
     QIcon appIcon;
     for (int size : {16, 24, 32, 48, 64, 128, 256})
@@ -50,6 +88,7 @@ int main(int argc, char *argv[])
         return 0;
 
     MainWindow window;
+    app.installEventFilter(new FileOpenFilter(&window));
 
     QLocalServer server;
     QLocalServer::removeServer(kInstanceName); // clear stale socket after a crash

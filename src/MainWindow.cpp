@@ -43,6 +43,7 @@
 #include <QShortcut>
 #include <QSpinBox>
 #include <QStackedWidget>
+#include <QStyle>
 #include <QStyleHints>
 #include <QTabBar>
 #include <QTabWidget>
@@ -82,18 +83,14 @@ void addMenuActionsTo(QWidget *target, const QList<QAction *> &actions)
     }
 }
 
-QIcon themeIcon(QIcon::ThemeIcon icon)
-{
-    return QIcon::fromTheme(icon);
-}
-
-// Simple line-art icons for the few glyphs the platform theme lacks.
-// Painted on demand in the current palette's text color, so they follow
-// light/dark theme switches like the theme icons do.
+// Simple line-art icons for the few glyphs the platform theme lacks (and
+// fallbacks where a platform has no icon theme at all). Painted on demand
+// in the current palette's text color, so they follow light/dark theme
+// switches like the theme icons do.
 class GlyphIconEngine : public QIconEngine
 {
 public:
-    enum Glyph { FitWidth, FitPage, Menu, Contrast };
+    enum Glyph { FitWidth, FitPage, Menu, Contrast, ZoomIn, ZoomOut, Search, Plus, Print };
     explicit GlyphIconEngine(Glyph glyph) : m_glyph(glyph) {}
 
     void paint(QPainter *painter, const QRect &rect, QIcon::Mode mode, QIcon::State) override
@@ -145,6 +142,25 @@ public:
             painter->drawPath(half);
             break;
         }
+        case ZoomIn:
+        case ZoomOut:
+        case Search:
+            painter->drawEllipse(QRectF(2, 2, 9, 9));
+            painter->drawLine(QPointF(10, 10), QPointF(14, 14));
+            if (m_glyph != Search)
+                painter->drawLine(QPointF(4.5, 6.5), QPointF(8.5, 6.5));
+            if (m_glyph == ZoomIn)
+                painter->drawLine(QPointF(6.5, 4.5), QPointF(6.5, 8.5));
+            break;
+        case Plus:
+            painter->drawLine(QPointF(8, 3), QPointF(8, 13));
+            painter->drawLine(QPointF(3, 8), QPointF(13, 8));
+            break;
+        case Print:
+            painter->drawRect(QRectF(4.5, 1.5, 7, 4));
+            painter->drawRoundedRect(QRectF(1.5, 5.5, 13, 6), 1, 1);
+            painter->drawRect(QRectF(4.5, 9.5, 7, 5));
+            break;
         }
         painter->restore();
     }
@@ -167,6 +183,32 @@ private:
 QIcon glyphIcon(GlyphIconEngine::Glyph glyph)
 {
     return QIcon(new GlyphIconEngine(glyph));
+}
+
+// Platform theme icon (Fluent on Windows, the desktop's icon theme on
+// Linux), falling back to Qt's built-in style icons or our glyphs where
+// the platform has none — so no toolbar button is ever blank.
+QIcon themeIcon(QIcon::ThemeIcon icon)
+{
+    if (QIcon::hasThemeIcon(icon))
+        return QIcon::fromTheme(icon);
+
+    QStyle *style = QApplication::style();
+    switch (icon) {
+    case QIcon::ThemeIcon::FolderOpen: return style->standardIcon(QStyle::SP_DialogOpenButton);
+    case QIcon::ThemeIcon::GoPrevious: return style->standardIcon(QStyle::SP_ArrowBack);
+    case QIcon::ThemeIcon::GoNext: return style->standardIcon(QStyle::SP_ArrowForward);
+    case QIcon::ThemeIcon::GoUp: return style->standardIcon(QStyle::SP_ArrowUp);
+    case QIcon::ThemeIcon::GoDown: return style->standardIcon(QStyle::SP_ArrowDown);
+    case QIcon::ThemeIcon::ViewRefresh: return style->standardIcon(QStyle::SP_BrowserReload);
+    case QIcon::ThemeIcon::ViewFullscreen: return style->standardIcon(QStyle::SP_TitleBarMaxButton);
+    case QIcon::ThemeIcon::ZoomIn: return glyphIcon(GlyphIconEngine::ZoomIn);
+    case QIcon::ThemeIcon::ZoomOut: return glyphIcon(GlyphIconEngine::ZoomOut);
+    case QIcon::ThemeIcon::EditFind: return glyphIcon(GlyphIconEngine::Search);
+    case QIcon::ThemeIcon::ListAdd: return glyphIcon(GlyphIconEngine::Plus);
+    case QIcon::ThemeIcon::DocumentPrint: return glyphIcon(GlyphIconEngine::Print);
+    default: return QIcon();
+    }
 }
 
 // Tabs show the file name, capped in width (long names elide) so many

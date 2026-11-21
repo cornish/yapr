@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=yapr
+GenericName=PDF Reader
+Comment=Yet another PDF reader: fast, predictable, no bloat
+Exec=yapr %F
+Icon=io.github.cornish.yapr
+Terminal=false
+Categories=Office;Viewer;
+MimeType=application/pdf;
+Keywords=pdf;reader;viewer;document;
+StartupWMClass=yapr
